@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Wordsmith</title>
+
+  <!-- Tailwind via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- React + ReactDOM (UMD builds) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+  <!-- Babel Standalone for in-browser JSX compilation -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    body { margin: 0; }
+    /* A simple loading state until React mounts */
+    #root:empty::before {
+      content: "Loading…";
+      display: block;
+      text-align: center;
+      padding: 4rem 1rem;
+      font-family: serif;
+      font-style: italic;
+      color: #78716c;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="react">
+const { useState, useMemo, useEffect } = React;
+
+
+// Inline SVG icon components (replacing lucide-react)
+function Icon({ size = 16, strokeWidth = 1.5, children }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ display: "inline-block", verticalAlign: "middle" }}
+    >
+      {children}
+    </svg>
+  );
+}
+function BookOpen({ size, strokeWidth }) {
+  return (
+    <Icon size={size} strokeWidth={strokeWidth}>
+      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+    </Icon>
+  );
+}
+function Sparkles({ size, strokeWidth }) {
+  return (
+    <Icon size={size} strokeWidth={strokeWidth}>
+      <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
+      <path d="M20 3v4" />
+      <path d="M22 5h-4" />
+      <path d="M4 17v2" />
+      <path d="M5 18H3" />
+    </Icon>
+  );
+}
+function RotateCcw({ size, strokeWidth }) {
+  return (
+    <Icon size={size} strokeWidth={strokeWidth}>
+      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+      <path d="M3 3v5h5" />
+    </Icon>
+  );
+}
+function TrendingUp({ size, strokeWidth }) {
+  return (
+    <Icon size={size} strokeWidth={strokeWidth}>
+      <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+      <polyline points="16 7 22 7 22 13" />
+    </Icon>
+  );
+}
+function Repeat({ size, strokeWidth }) {
+  return (
+    <Icon size={size} strokeWidth={strokeWidth}>
+      <path d="m17 2 4 4-4 4" />
+      <path d="M3 11v-1a4 4 0 0 1 4-4h14" />
+      <path d="m7 22-4-4 4-4" />
+      <path d="M21 13v1a4 4 0 0 1-4 4H3" />
+    </Icon>
+  );
+}
+
+
+// Word bank organized by difficulty (1 = common-but-interesting, 5 = rare/erudite)
+const WORD_BANK = [
+  // Level 1 — accessible but flavorful
+  { word: "ephemeral", level: 1, pos: "adj.", definition: "Lasting for a very short time.", example: "The ephemeral beauty of cherry blossoms." },
+  { word: "serendipity", level: 1, pos: "n.", definition: "The occurrence of happy or beneficial events by chance.", example: "Finding that book was pure serendipity." },
+  { word: "melancholy", level: 1, pos: "n./adj.", definition: "A feeling of pensive sadness, typically with no obvious cause.", example: "A melancholy autumn afternoon." },
+  { word: "ineffable", level: 1, pos: "adj.", definition: "Too great or extreme to be expressed in words.", example: "The ineffable joy of a first sunrise." },
+  { word: "petrichor", level: 1, pos: "n.", definition: "The pleasant, earthy smell after rain on dry ground.", example: "The petrichor drifted through the open window." },
+  { word: "halcyon", level: 1, pos: "adj.", definition: "Denoting a period of time in the past that was idyllically happy and peaceful.", example: "The halcyon days of childhood summers." },
+  { word: "languid", level: 1, pos: "adj.", definition: "Displaying or having a disinclination for physical exertion; pleasantly lazy.", example: "A languid afternoon by the lake." },
+  { word: "luminous", level: 1, pos: "adj.", definition: "Full of or shedding light; radiant.", example: "Her luminous smile." },
+  { word: "vivacious", level: 1, pos: "adj.", definition: "Attractively lively and animated.", example: "A vivacious dinner host." },
+  { word: "brusque", level: 1, pos: "adj.", definition: "Abrupt or curt in manner or speech; blunt.", example: "His brusque reply ended the conversation." },
+  { word: "candid", level: 1, pos: "adj.", definition: "Truthful and straightforward; frank.", example: "A candid assessment of the project." },
+  { word: "austere", level: 1, pos: "adj.", definition: "Severe or strict in manner; plain or unadorned.", example: "An austere stone chapel." },
+  { word: "gregarious", level: 1, pos: "adj.", definition: "Fond of company; sociable.", example: "A gregarious child who befriended everyone." },
+  { word: "meticulous", level: 1, pos: "adj.", definition: "Showing great attention to detail; very careful and precise.", example: "Meticulous notes filled the margins." },
+
+  // Level 2 — moderately uncommon
+  { word: "quotidian", level: 2, pos: "adj.", definition: "Of or occurring every day; daily; ordinary or everyday.", example: "The quotidian rhythms of small-town life." },
+  { word: "susurrus", level: 2, pos: "n.", definition: "A whispering, murmuring, or rustling sound.", example: "The susurrus of leaves in the breeze." },
+  { word: "mellifluous", level: 2, pos: "adj.", definition: "(Of a voice or words) sweet or musical; pleasant to hear.", example: "His mellifluous baritone filled the room." },
+  { word: "perfunctory", level: 2, pos: "adj.", definition: "Carried out with minimum effort or reflection.", example: "A perfunctory nod of acknowledgment." },
+  { word: "vicissitude", level: 2, pos: "n.", definition: "A change of circumstances or fortune, typically unwelcome.", example: "The vicissitudes of political life." },
+  { word: "umbrage", level: 2, pos: "n.", definition: "Offense or annoyance.", example: "He took umbrage at the suggestion." },
+  { word: "winsome", level: 2, pos: "adj.", definition: "Attractive or appealing in a fresh, innocent way.", example: "A winsome grin." },
+  { word: "sublime", level: 2, pos: "adj.", definition: "Of such excellence, grandeur, or beauty as to inspire great admiration or awe.", example: "The sublime view from the summit." },
+  { word: "taciturn", level: 2, pos: "adj.", definition: "Reserved or uncommunicative in speech; saying little.", example: "Her taciturn grandfather rarely spoke at dinner." },
+  { word: "ebullient", level: 2, pos: "adj.", definition: "Cheerful and full of energy.", example: "An ebullient host greeted us at the door." },
+  { word: "loquacious", level: 2, pos: "adj.", definition: "Tending to talk a great deal; talkative.", example: "Her loquacious aunt dominated every conversation." },
+  { word: "insouciant", level: 2, pos: "adj.", definition: "Showing a casual lack of concern; nonchalant.", example: "An insouciant shrug at the bad news." },
+  { word: "trenchant", level: 2, pos: "adj.", definition: "Vigorous or incisive in expression or style.", example: "A trenchant critique of the proposal." },
+  { word: "rapacious", level: 2, pos: "adj.", definition: "Aggressively greedy or grasping.", example: "The rapacious developers bought up the whole block." },
+  { word: "salient", level: 2, pos: "adj.", definition: "Most noticeable or important; prominent.", example: "The salient point of his argument." },
+  { word: "sonorous", level: 2, pos: "adj.", definition: "(Of a sound) imposingly deep and full.", example: "The sonorous tolling of the cathedral bell." },
+  { word: "erstwhile", level: 2, pos: "adj./adv.", definition: "Former; in the past.", example: "His erstwhile colleagues had moved on." },
+
+  // Level 3 — definitely literary
+  { word: "fugacious", level: 3, pos: "adj.", definition: "Tending to disappear; fleeting.", example: "The fugacious blush of dawn." },
+  { word: "apocryphal", level: 3, pos: "adj.", definition: "Of doubtful authenticity, although widely circulated as being true.", example: "An apocryphal story about Einstein." },
+  { word: "pellucid", level: 3, pos: "adj.", definition: "Translucently clear; easy to understand.", example: "Pellucid mountain water." },
+  { word: "lugubrious", level: 3, pos: "adj.", definition: "Looking or sounding sad and dismal.", example: "His lugubrious expression at the funeral." },
+  { word: "obstreperous", level: 3, pos: "adj.", definition: "Noisy and difficult to control.", example: "An obstreperous crowd." },
+  { word: "diaphanous", level: 3, pos: "adj.", definition: "(Especially of fabric) light, delicate, and translucent.", example: "Diaphanous curtains stirred at the window." },
+  { word: "pulchritude", level: 3, pos: "n.", definition: "Beauty.", example: "Renowned for her pulchritude." },
+  { word: "anodyne", level: 3, pos: "adj.", definition: "Not likely to provoke dissent or offense; bland.", example: "Anodyne corporate language." },
+  { word: "perspicacious", level: 3, pos: "adj.", definition: "Having a ready insight into and understanding of things.", example: "A perspicacious observation." },
+  { word: "sanguine", level: 3, pos: "adj.", definition: "Optimistic or positive, especially in a difficult situation.", example: "Sanguine about the company's prospects." },
+  { word: "puerile", level: 3, pos: "adj.", definition: "Childishly silly and trivial.", example: "Puerile humor." },
+  { word: "recondite", level: 3, pos: "adj.", definition: "Little known; abstruse.", example: "A recondite branch of mathematics." },
+  { word: "truculent", level: 3, pos: "adj.", definition: "Eager or quick to argue or fight; aggressively defiant.", example: "His truculent reply silenced the room." },
+  { word: "sycophant", level: 3, pos: "n.", definition: "A person who acts obsequiously toward someone important to gain advantage.", example: "The CEO was surrounded by sycophants." },
+  { word: "quixotic", level: 3, pos: "adj.", definition: "Exceedingly idealistic; unrealistic and impractical.", example: "A quixotic mission to reform the entire industry." },
+  { word: "fastidious", level: 3, pos: "adj.", definition: "Very attentive to accuracy and detail; difficult to please.", example: "A fastidious editor who caught every typo." },
+  { word: "desultory", level: 3, pos: "adj.", definition: "Lacking a plan, purpose, or enthusiasm; random.", example: "A few desultory attempts at conversation." },
+  { word: "peripatetic", level: 3, pos: "adj.", definition: "Traveling from place to place; itinerant.", example: "His peripatetic career took him across three continents." },
+
+  // Level 4 — quite rare
+  { word: "ultracrepidarian", level: 4, pos: "n./adj.", definition: "A person who gives opinions on matters beyond their knowledge.", example: "The comments section is full of ultracrepidarians." },
+  { word: "sesquipedalian", level: 4, pos: "adj.", definition: "(Of a word) polysyllabic; long. Also: given to using long words.", example: "His sesquipedalian prose tired the reader." },
+  { word: "callipygian", level: 4, pos: "adj.", definition: "Having well-shaped buttocks.", example: "A callipygian Greek statue." },
+  { word: "saturnine", level: 4, pos: "adj.", definition: "(Of a person or their manner) slow and gloomy; (of a place or atmosphere) bleak or dark.", example: "His saturnine expression at the news." },
+  { word: "inveterate", level: 4, pos: "adj.", definition: "Having a particular habit, activity, or interest that is long-established and unlikely to change.", example: "An inveterate gambler." },
+  { word: "coruscate", level: 4, pos: "v.", definition: "(Of light) flash or sparkle.", example: "Sunlight coruscated on the waves." },
+  { word: "deliquesce", level: 4, pos: "v.", definition: "Become liquid, typically during decomposition.", example: "The fungus began to deliquesce." },
+  { word: "borborygmus", level: 4, pos: "n.", definition: "A rumbling or gurgling noise made by the movement of fluid and gas in the intestines.", example: "An embarrassing borborygmus during the meeting." },
+  { word: "tergiversate", level: 4, pos: "v.", definition: "Make conflicting or evasive statements; equivocate.", example: "The politician tergiversated on the issue." },
+  { word: "absquatulate", level: 4, pos: "v.", definition: "Leave abruptly.", example: "He absquatulated before the bill arrived." },
+  { word: "crepuscular", level: 4, pos: "adj.", definition: "Of, resembling, or relating to twilight; (of animals) appearing or active at twilight.", example: "Crepuscular creatures like deer and rabbits." },
+  { word: "eldritch", level: 4, pos: "adj.", definition: "Weird and sinister or ghostly.", example: "An eldritch glow from the forest." },
+  { word: "limn", level: 4, pos: "v.", definition: "Depict or describe in painting or words.", example: "The novel limns small-town life with great care." },
+  { word: "fulsome", level: 4, pos: "adj.", definition: "Complimentary or flattering to an excessive degree.", example: "Fulsome praise that made everyone uncomfortable." },
+  { word: "flibbertigibbet", level: 4, pos: "n.", definition: "A frivolous, flighty, or excessively talkative person.", example: "Don't be such a flibbertigibbet — focus." },
+  { word: "immure", level: 4, pos: "v.", definition: "Enclose or confine against one's will.", example: "Immured in her study for weeks on end." },
+  { word: "epigone", level: 4, pos: "n.", definition: "A less distinguished follower or imitator.", example: "Mere epigones of the original masters." },
+
+  // Level 5 — erudite / archaic
+  { word: "floccinaucinihilipilification", level: 5, pos: "n.", definition: "The action or habit of estimating something as worthless.", example: "His floccinaucinihilipilification of modern art." },
+  { word: "mumpsimus", level: 5, pos: "n.", definition: "A traditional custom or notion adhered to although shown to be unreasonable.", example: "Refusing to update the spelling — pure mumpsimus." },
+  { word: "agelast", level: 5, pos: "n.", definition: "A person who never laughs.", example: "The board chairman was a notorious agelast." },
+  { word: "sciolist", level: 5, pos: "n.", definition: "A person who pretends to be knowledgeable and well-informed.", example: "A sciolist masquerading as a scholar." },
+  { word: "philodox", level: 5, pos: "n.", definition: "A person who loves their own opinions; a dogmatist.", example: "Avoid the philodox at dinner parties." },
+  { word: "kakistocracy", level: 5, pos: "n.", definition: "Government by the worst people.", example: "He warned the republic was sliding into kakistocracy." },
+  { word: "aeolist", level: 5, pos: "n.", definition: "A pompous, windy bore who pretends to have inspiration.", example: "The lecture hall emptied as the aeolist droned on." },
+  { word: "velleity", level: 5, pos: "n.", definition: "A wish or inclination not strong enough to lead to action.", example: "His desire to write a novel was a mere velleity." },
+  { word: "cacoethes", level: 5, pos: "n.", definition: "An urge to do something inadvisable.", example: "A cacoethes for late-night online shopping." },
+  { word: "pogonotrophy", level: 5, pos: "n.", definition: "The cultivation of a beard.", example: "He took up pogonotrophy during the pandemic." },
+  { word: "rodomontade", level: 5, pos: "n.", definition: "Boastful or inflated talk or behavior.", example: "Pure rodomontade, signifying nothing." },
+  { word: "anfractuous", level: 5, pos: "adj.", definition: "Sinuous or circuitous; full of twists and turns.", example: "An anfractuous mountain road." },
+  { word: "opsimath", level: 5, pos: "n.", definition: "A person who begins to learn or study only late in life.", example: "An opsimath taking up Greek at seventy." },
+  { word: "gallimaufry", level: 5, pos: "n.", definition: "A confused jumble or medley of things.", example: "A gallimaufry of half-finished projects." },
+  { word: "brobdingnagian", level: 5, pos: "adj.", definition: "Gigantic; enormous in scale.", example: "A brobdingnagian portion of pasta." },
+  { word: "rebarbative", level: 5, pos: "adj.", definition: "Unattractive and objectionable; repellent.", example: "His rebarbative manner alienated the committee." },
+  { word: "peregrination", level: 5, pos: "n.", definition: "A long and meandering journey.", example: "Their peregrinations across Europe lasted a year." },
+  { word: "thaumaturgy", level: 5, pos: "n.", definition: "The working of wonders or miracles; magic.", example: "The thaumaturgy of medieval saints." },
+];
+
+// Renders a word that always fits on one line. Short words display at a normal
+// large size; long words automatically shrink to fit the container width.
+function FittedWord({ word }) {
+  const charWidth = 0.58; // empirical ratio for Fraunces at weight 500
+  const fontSize = 100;
+  const estimatedWidth = word.length * charWidth * fontSize;
+  // Define a "natural" viewBox width for short-to-medium words
+  // (corresponds to ~12 character width — anything shorter renders at full size)
+  const naturalWidth = 12 * charWidth * fontSize;
+  // Use whichever is larger: the natural width or the word's actual width
+  const viewBoxWidth = Math.max(naturalWidth, estimatedWidth * 1.04);
+  const viewBoxHeight = fontSize * 1.2;
+
+  return (
+    <svg
+      viewBox={`0 0 ${viewBoxWidth} ${viewBoxHeight}`}
+      preserveAspectRatio="xMidYMid meet"
+      className="w-full block"
+      style={{ maxHeight: "5rem" }}
+    >
+      <text
+        x="50%"
+        y="55%"
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fontFamily="Fraunces, serif"
+        fontWeight="500"
+        fontSize={fontSize}
+        fill="#1c1917"
+      >
+        {word}
+      </text>
+    </svg>
+  );
+}
+
+
+function DancingCat() {
+  return (
+    <div
+      className="mt-6 relative h-24 overflow-hidden select-none pointer-events-none"
+      style={{
+        width: "100vw",
+        marginLeft: "calc(-50vw + 50%)",
+        marginRight: "calc(-50vw + 50%)",
+      }}
+    >
+      <style>{`
+        @keyframes cat-travel {
+          0% { left: -120px; }
+          50% { left: calc(100% - 0px); transform: scaleX(1); }
+          50.01% { left: calc(100% - 0px); transform: scaleX(-1); }
+          100% { left: -120px; transform: scaleX(-1); }
+        }
+        @keyframes cat-bob {
+          0%, 100% { transform: translateY(0) rotate(-3deg); }
+          50% { transform: translateY(-6px) rotate(3deg); }
+        }
+        @keyframes cat-arm-left {
+          0%, 100% { transform: rotate(20deg); }
+          50% { transform: rotate(-30deg); }
+        }
+        @keyframes cat-arm-right {
+          0%, 100% { transform: rotate(-30deg); }
+          50% { transform: rotate(20deg); }
+        }
+        @keyframes cat-tail {
+          0%, 100% { transform: rotate(-20deg); }
+          50% { transform: rotate(25deg); }
+        }
+        @keyframes cat-leg-left {
+          0%, 100% { transform: translateY(0); }
+          25% { transform: translateY(-2px); }
+          50% { transform: translateY(0); }
+        }
+        @keyframes cat-leg-right {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(0); }
+          75% { transform: translateY(-2px); }
+        }
+        @keyframes note-float {
+          0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+          20% { opacity: 1; }
+          100% { transform: translate(var(--tx), -40px) rotate(var(--tr)); opacity: 0; }
+        }
+        .cat-traveler {
+          position: absolute;
+          top: 0;
+          animation: cat-travel 8s linear infinite;
+          transform-origin: center center;
+        }
+        .cat-body { animation: cat-bob 0.4s ease-in-out infinite; transform-origin: center bottom; }
+        .cat-arm-left { animation: cat-arm-left 0.4s ease-in-out infinite; transform-origin: 38px 60px; }
+        .cat-arm-right { animation: cat-arm-right 0.4s ease-in-out infinite; transform-origin: 62px 60px; }
+        .cat-tail { animation: cat-tail 0.4s ease-in-out infinite; transform-origin: 78px 75px; }
+        .cat-leg-left { animation: cat-leg-left 0.4s ease-in-out infinite; transform-origin: 42px 90px; }
+        .cat-leg-right { animation: cat-leg-right 0.4s ease-in-out infinite; transform-origin: 58px 90px; }
+        .note-1 { animation: note-float 1.5s ease-out infinite; --tx: -20px; --tr: -20deg; }
+        .note-2 { animation: note-float 1.5s ease-out infinite 0.5s; --tx: 25px; --tr: 25deg; }
+        .note-3 { animation: note-float 1.5s ease-out infinite 1s; --tx: -10px; --tr: 10deg; }
+      `}</style>
+
+      <div className="cat-traveler">
+        <svg viewBox="0 0 120 120" width="90" height="90" xmlns="http://www.w3.org/2000/svg">
+          {/* Music notes floating up */}
+          <text x="20" y="40" className="note-1" fontSize="14" fill="#ec4899" fontFamily="serif">♪</text>
+          <text x="85" y="35" className="note-2" fontSize="16" fill="#ec4899" fontFamily="serif">♫</text>
+          <text x="50" y="30" className="note-3" fontSize="14" fill="#ec4899" fontFamily="serif">♩</text>
+
+          <g className="cat-body">
+            {/* Tail */}
+            <path
+              className="cat-tail"
+              d="M 78 78 Q 92 70 90 55"
+              stroke="#ec4899"
+              strokeWidth="4"
+              strokeLinecap="round"
+              fill="none"
+            />
+
+            {/* Left leg */}
+            <ellipse className="cat-leg-left" cx="44" cy="92" rx="5" ry="6" fill="#ec4899" />
+            {/* Right leg */}
+            <ellipse className="cat-leg-right" cx="58" cy="92" rx="5" ry="6" fill="#ec4899" />
+
+            {/* Body */}
+            <ellipse cx="50" cy="78" rx="18" ry="16" fill="#ec4899" />
+
+            {/* Left arm */}
+            <ellipse
+              className="cat-arm-left"
+              cx="34"
+              cy="68"
+              rx="4"
+              ry="9"
+              fill="#ec4899"
+            />
+            {/* Right arm */}
+            <ellipse
+              className="cat-arm-right"
+              cx="66"
+              cy="68"
+              rx="4"
+              ry="9"
+              fill="#ec4899"
+            />
+
+            {/* Head */}
+            <circle cx="50" cy="50" r="16" fill="#ec4899" />
+
+            {/* Ears */}
+            <polygon points="38,42 36,30 46,38" fill="#ec4899" />
+            <polygon points="62,42 64,30 54,38" fill="#ec4899" />
+            {/* Inner ears */}
+            <polygon points="40,40 39,34 44,38" fill="#fce7f3" />
+            <polygon points="60,40 61,34 56,38" fill="#fce7f3" />
+
+            {/* Eyes (closed, content) */}
+            <path d="M 42 50 Q 45 47 48 50" stroke="#fff" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+            <path d="M 52 50 Q 55 47 58 50" stroke="#fff" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+
+            {/* Nose */}
+            <path d="M 49 54 L 51 54 L 50 56 Z" fill="#be185d" />
+
+            {/* Mouth */}
+            <path d="M 50 56 Q 47 59 45 57" stroke="#fff" strokeWidth="1" fill="none" strokeLinecap="round" />
+            <path d="M 50 56 Q 53 59 55 57" stroke="#fff" strokeWidth="1" fill="none" strokeLinecap="round" />
+
+            {/* Whiskers */}
+            <line x1="36" y1="54" x2="42" y2="55" stroke="#fce7f3" strokeWidth="0.5" />
+            <line x1="36" y1="56" x2="42" y2="56" stroke="#fce7f3" strokeWidth="0.5" />
+            <line x1="58" y1="55" x2="64" y2="54" stroke="#fce7f3" strokeWidth="0.5" />
+            <line x1="58" y1="56" x2="64" y2="56" stroke="#fce7f3" strokeWidth="0.5" />
+          </g>
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+function VocabTool() {
+  const [history, setHistory] = useState([]); // {word, response, level, definition, example, pos}
+  const [currentWord, setCurrentWord] = useState(null);
+  const [showDefinition, setShowDefinition] = useState(false);
+  const [lastResponse, setLastResponse] = useState(null);
+  const [reviewMode, setReviewMode] = useState(false);
+  const [reviewedAtNonKnowCount, setReviewedAtNonKnowCount] = useState(0); // # of non-"know" answers at last review
+  const [lockedLevel, setLockedLevel] = useState(null); // null = auto-adapt; 1-5 = locked
+
+  // Pure function to compute skill level from any history array.
+  // Reused both for the display memo and for picking the next word.
+  const computeSkillLevel = (h) => {
+    if (h.length === 0) return 2;
+
+    let level = 2;
+    let highWaterMark = 2;
+
+    for (let i = 0; i < h.length; i++) {
+      const entry = h[i];
+      const wordLevel = entry.level;
+
+      if (entry.response === "know") {
+        if (wordLevel >= level - 0.5) {
+          const closeness = 1 - Math.max(0, level - wordLevel);
+          level = Math.min(5, level + 0.4 * closeness + 0.15);
+        }
+      } else if (entry.response === "heard-known") {
+        if (wordLevel >= level - 0.5) {
+          level = Math.min(5, level + 0.2);
+        }
+      } else if (entry.response === "heard-surprised") {
+        if (wordLevel >= level) {
+          level = Math.max(highWaterMark, level - 0.15);
+        }
+      } else if (entry.response === "unknown") {
+        if (wordLevel >= level) {
+          level = Math.max(highWaterMark, level - 0.25);
+        }
+      }
+
+      // Update high water mark: 2+ confirmed at floor(level) or above
+      const confirmedAtOrAbove = h
+        .slice(0, i + 1)
+        .filter(
+          (e) =>
+            (e.response === "know" || e.response === "heard-known") &&
+            e.level >= Math.floor(level)
+        ).length;
+      if (confirmedAtOrAbove >= 2 && Math.floor(level) > highWaterMark) {
+        highWaterMark = Math.floor(level);
+      }
+    }
+
+    return Math.max(1, Math.min(5, level));
+  };
+
+  // Compute current difficulty level for display
+  const skillLevel = useMemo(() => computeSkillLevel(history), [history]);
+
+  // Pick the next word. Pass in the most up-to-date history so we don't
+  // accidentally pick a word that was just answered (state hasn't flushed yet).
+  const pickNextWord = (historyOverride) => {
+    const effectiveHistory = historyOverride ?? history;
+    const seenWords = new Set(effectiveHistory.map((h) => h.word));
+    let available = WORD_BANK.filter((w) => !seenWords.has(w.word));
+
+    if (available.length === 0) {
+      setCurrentWord(null);
+      return;
+    }
+
+    // If user has locked a level, restrict to that level (with fallback if exhausted)
+    if (lockedLevel !== null) {
+      const atLevel = available.filter((w) => w.level === lockedLevel);
+      if (atLevel.length > 0) {
+        // Pick randomly from this level
+        const chosen = atLevel[Math.floor(Math.random() * atLevel.length)];
+        setCurrentWord(chosen);
+        setShowDefinition(false);
+        setLastResponse(null);
+        return;
+      }
+      // Fall through to adaptive picker if no words left at locked level
+    }
+
+    // Compute target level from the up-to-date history
+    const target = computeSkillLevel(effectiveHistory);
+
+    // Score each word: distance from target, penalized harder for being EASIER
+    // than target (asymmetric — we don't want to drop back to easy words).
+    const scored = available.map((w) => {
+      const distance = w.level - target;
+      // Words below target get a stiffer penalty than words above
+      const directionalPenalty = distance < 0 ? Math.abs(distance) * 1.8 : Math.abs(distance);
+      return {
+        word: w,
+        score: directionalPenalty + Math.random() * 0.4,
+      };
+    });
+    scored.sort((a, b) => a.score - b.score);
+
+    // Pick from top 2 candidates randomly (smaller pool = stays near target)
+    const topPick = scored.slice(0, Math.min(2, scored.length));
+    const chosen = topPick[Math.floor(Math.random() * topPick.length)].word;
+
+    setCurrentWord(chosen);
+    setShowDefinition(false);
+    setLastResponse(null);
+  };
+
+  // Initialize on first render
+  useEffect(() => {
+    if (!currentWord && history.length === 0) {
+      pickNextWord([]);
+    }
+  }, []);
+
+  const handleResponse = (response) => {
+    if (!currentWord) return;
+    // All three initial responses show the definition first.
+    // The actual recorded outcome comes from the reaction buttons.
+    setLastResponse(response);
+    setShowDefinition(true);
+  };
+
+  // Called after the user reacts to seeing the definition.
+  // outcome: 'confirmed' (matched expectation) or 'surprised' (didn't)
+  const handleReaction = (outcome) => {
+    if (!currentWord) return;
+
+    // Map (initial response, outcome) → final recorded response for the algorithm
+    let finalResponse;
+    if (lastResponse === "know") {
+      // Knew it: confirmed = real know; surprised = they were wrong, treat as heard-surprised
+      finalResponse = outcome === "confirmed" ? "know" : "heard-surprised";
+    } else if (lastResponse === "heard") {
+      // Heard of it: confirmed = heard-known; surprised = heard-surprised
+      finalResponse = outcome === "confirmed" ? "heard-known" : "heard-surprised";
+    } else {
+      // Didn't know: always counts as unknown regardless of reaction
+      finalResponse = "unknown";
+    }
+
+    const entry = {
+      word: currentWord.word,
+      response: finalResponse,
+      level: currentWord.level,
+      definition: currentWord.definition,
+      example: currentWord.example,
+      pos: currentWord.pos,
+    };
+    const newHistory = [...history, entry];
+    setHistory(newHistory);
+    advanceOrReview(newHistory);
+  };
+
+  // Decide whether to enter review mode or pick the next word.
+  // Review fires every 3 non-"know" answers (i.e. words user wasn't fully solid on).
+  const advanceOrReview = (currentHistory) => {
+    const nonKnowCount = currentHistory.filter((h) => h.response !== "know").length;
+    if (nonKnowCount - reviewedAtNonKnowCount >= 3) {
+      setReviewMode(true);
+      setReviewedAtNonKnowCount(nonKnowCount);
+      setCurrentWord(null);
+      setShowDefinition(false);
+      setLastResponse(null);
+    } else {
+      pickNextWord(currentHistory);
+    }
+  };
+
+  const handleReviewDone = () => {
+    setReviewMode(false);
+    pickNextWord(history);
+  };
+
+  // Handle level lock change. If user picks a specific level, immediately
+  // swap to a word at that level (unless mid-definition). Picking "Auto"
+  // returns to adaptive behavior.
+  const handleLockLevel = (level) => {
+    setLockedLevel(level);
+    // If user is currently between words (showing a word but hasn't seen def yet),
+    // swap the current word to one matching the new locked level.
+    if (currentWord && !showDefinition) {
+      const seenWords = new Set(history.map((h) => h.word));
+      let pool;
+      if (level !== null) {
+        pool = WORD_BANK.filter((w) => w.level === level && !seenWords.has(w.word));
+      } else {
+        pool = WORD_BANK.filter((w) => !seenWords.has(w.word));
+      }
+      if (pool.length > 0) {
+        const chosen = pool[Math.floor(Math.random() * pool.length)];
+        setCurrentWord(chosen);
+      }
+    }
+  };
+
+  const handleReset = () => {
+    setHistory([]);
+    setCurrentWord(null);
+    setShowDefinition(false);
+    setLastResponse(null);
+    setReviewMode(false);
+    setReviewedAtNonKnowCount(0);
+    setTimeout(() => {
+      // If a level is locked, start from that level; otherwise default to level 2
+      const startLevel = lockedLevel ?? 2;
+      const candidates = WORD_BANK.filter((w) => w.level === startLevel);
+      const startWord = candidates[Math.floor(Math.random() * candidates.length)];
+      setCurrentWord(startWord);
+    }, 50);
+  };
+
+  const stats = useMemo(() => {
+    const known = history.filter((h) => h.response === "know").length;
+    const heard = history.filter(
+      (h) => h.response === "heard-known" || h.response === "heard-surprised"
+    ).length;
+    const unknown = history.filter((h) => h.response === "unknown").length;
+    return { known, heard, unknown, total: history.length };
+  }, [history]);
+
+  // Words to revisit during review mode — the last 3 non-"know" words
+  const wordsForReview = useMemo(() => {
+    return history
+      .filter((h) => h.response !== "know")
+      .slice(-3);
+  }, [history, reviewMode]);
+
+  const levelLabel = (lv) => {
+    if (lv < 1.5) return "Approachable";
+    if (lv < 2.5) return "Literary";
+    if (lv < 3.5) return "Erudite";
+    if (lv < 4.5) return "Recondite";
+    return "Arcane";
+  };
+
+  const allDone = !currentWord && !reviewMode && history.length > 0 &&
+    history.length >= WORD_BANK.length;
+
+  return (
+    <div className="min-h-screen w-full bg-stone-50 text-stone-900 font-serif">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500&display=swap');
+        .font-display { font-family: 'Fraunces', serif; font-variation-settings: "opsz" 144; }
+        .font-body { font-family: 'Cormorant Garamond', serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .paper-texture {
+          background-color: #faf7f2;
+          background-image:
+            radial-gradient(circle at 20% 30%, rgba(120, 80, 40, 0.04) 0%, transparent 50%),
+            radial-gradient(circle at 80% 70%, rgba(60, 40, 20, 0.03) 0%, transparent 50%);
+        }
+        .ink-line {
+          background: linear-gradient(to right, transparent, #44403c 20%, #44403c 80%, transparent);
+          height: 1px;
+        }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-up { animation: fadeUp 0.5s ease-out; }
+        @keyframes pulse-once {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.03); }
+        }
+        .pulse-once { animation: pulse-once 0.4s ease-out; }
+      `}</style>
+
+      <div className="paper-texture min-h-screen">
+        <div className="max-w-2xl mx-auto px-3 py-5 sm:px-6 sm:py-10">
+          {/* Header */}
+          <header className="mb-6 sm:mb-8 text-center">
+            <div className="flex items-center justify-center gap-2 mb-2 text-stone-500">
+              <BookOpen size={14} strokeWidth={1.5} />
+              <span className="font-mono text-[10px] tracking-[0.3em] uppercase">
+                Lexicon · Vol. I
+              </span>
+              <BookOpen size={14} strokeWidth={1.5} />
+            </div>
+            <h1 className="font-display text-4xl sm:text-5xl md:text-6xl font-medium tracking-tight text-stone-800">
+              The <em className="italic font-light">Word</em>smith
+            </h1>
+            <div className="ink-line w-32 mx-auto mt-3 sm:mt-4" />
+            <p className="font-body text-base sm:text-lg italic text-stone-600 mt-3 sm:mt-4 px-4 sm:px-0">
+              A daily encounter with the language you didn't know you needed.
+            </p>
+          </header>
+
+          {/* Level selector */}
+          <div className="mb-4 sm:mb-6 flex flex-col items-center gap-2">
+            <div className="font-mono text-[10px] tracking-[0.3em] uppercase text-stone-500">
+              Difficulty
+            </div>
+            <div className="flex gap-1 flex-wrap justify-center">
+              {[
+                { value: null, label: "Auto" },
+                { value: 1, label: "I" },
+                { value: 2, label: "II" },
+                { value: 3, label: "III" },
+                { value: 4, label: "IV" },
+                { value: 5, label: "V" },
+              ].map(({ value, label }) => {
+                const selected = lockedLevel === value;
+                return (
+                  <button
+                    key={label}
+                    onClick={() => handleLockLevel(value)}
+                    className={`px-3 sm:px-4 py-1 sm:py-1.5 font-display text-sm tracking-wide transition-colors duration-150 border ${
+                      selected
+                        ? "bg-stone-900 text-stone-50 border-stone-900"
+                        : "bg-white text-stone-700 border-stone-300 hover:bg-stone-100 hover:border-stone-500"
+                    }`}
+                    aria-pressed={selected}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            {lockedLevel !== null && (
+              <div className="font-body italic text-xs text-stone-500 mt-1">
+                Locked at level {lockedLevel} — {levelLabel(lockedLevel)}
+              </div>
+            )}
+          </div>
+
+          {/* Stats bar */}
+          {history.length > 0 && (
+            <div className="mb-4 sm:mb-8 flex items-center justify-between text-stone-600 font-mono text-[10px] tracking-widest uppercase border-y border-stone-300 py-2 sm:py-3">
+              <div className="flex gap-4">
+                <span><span className="text-stone-900 font-semibold">{stats.known}</span> known</span>
+                <span><span className="text-stone-900 font-semibold">{stats.heard}</span> heard</span>
+                <span><span className="text-stone-900 font-semibold">{stats.unknown}</span> new</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <TrendingUp size={11} strokeWidth={1.5} />
+                <span>
+                  {lockedLevel !== null
+                    ? `${levelLabel(lockedLevel)} · Locked`
+                    : levelLabel(skillLevel)}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Main card */}
+          {currentWord && !allDone && !reviewMode && (
+            <div key={currentWord.word} className="fade-up">
+              <div className="bg-white border border-stone-300 shadow-sm relative">
+                {/* Decorative corner marks */}
+                <div className="absolute top-2 left-2 w-3 h-3 border-t border-l border-stone-400" />
+                <div className="absolute top-2 right-2 w-3 h-3 border-t border-r border-stone-400" />
+                <div className="absolute bottom-2 left-2 w-3 h-3 border-b border-l border-stone-400" />
+                <div className="absolute bottom-2 right-2 w-3 h-3 border-b border-r border-stone-400" />
+
+                <div className="px-5 py-8 sm:px-8 sm:py-12 md:px-12 md:py-16">
+                  <div className="text-center">
+                    <div className="font-mono text-[10px] tracking-[0.3em] uppercase text-stone-500 mb-3 sm:mb-4">
+                      № {history.length + 1} · Level {currentWord.level}
+                    </div>
+                    <FittedWord word={currentWord.word} />
+                    <div className="font-body italic text-stone-500 mt-2 sm:mt-3 text-base sm:text-lg">
+                      {currentWord.pos}
+                    </div>
+                  </div>
+
+                  {/* Definition reveal */}
+                  {showDefinition && (
+                    <div className="fade-up mt-6 sm:mt-10 pt-5 sm:pt-8 border-t border-stone-200">
+                      <p className="font-body text-lg sm:text-2xl leading-relaxed text-stone-800 text-center">
+                        {currentWord.definition}
+                      </p>
+                      <div className="mt-4 sm:mt-6 px-4 sm:px-6 py-3 sm:py-4 bg-stone-100 border-l-2 border-stone-400">
+                        <p className="font-body italic text-stone-700 text-base sm:text-lg">
+                          "{currentWord.example}"
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Initial response buttons — shown before definition */}
+                  {!showDefinition && (
+                    <div className="mt-6 sm:mt-12 space-y-2 sm:space-y-3">
+                      <button
+                        onClick={() => handleResponse("know")}
+                        className="w-full py-3 sm:py-4 px-5 sm:px-6 bg-stone-900 text-stone-50 font-display text-base sm:text-lg font-medium tracking-wide hover:bg-stone-700 transition-colors duration-200 group"
+                      >
+                        <span className="block">I know it well</span>
+                        <span className="hidden sm:block text-xs font-mono tracking-widest uppercase opacity-60 mt-1 group-hover:opacity-90">
+                          And could use it in a sentence
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => handleResponse("heard")}
+                        className="w-full py-3 sm:py-4 px-5 sm:px-6 bg-white border border-stone-400 text-stone-800 font-display text-base sm:text-lg font-medium tracking-wide hover:bg-stone-100 transition-colors duration-200 group"
+                      >
+                        <span className="block">I've heard of it</span>
+                        <span className="hidden sm:block text-xs font-mono tracking-widest uppercase opacity-60 mt-1 group-hover:opacity-90">
+                          But I'm not sure of the precise meaning
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => handleResponse("unknown")}
+                        className="w-full py-3 sm:py-4 px-5 sm:px-6 bg-white border border-dashed border-stone-400 text-stone-700 font-display text-base sm:text-lg font-medium tracking-wide hover:bg-stone-100 transition-colors duration-200 group"
+                      >
+                        <span className="block italic">I don't know it</span>
+                        <span className="hidden sm:block text-xs font-mono tracking-widest uppercase opacity-60 mt-1 group-hover:opacity-90 not-italic">
+                          Teach me
+                        </span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* After definition is shown */}
+                  {showDefinition && (
+                    <>
+                      {/* Reaction buttons (skip for "unknown" — there's nothing to confirm) */}
+                      {lastResponse !== "unknown" ? (
+                        <div className="mt-5 sm:mt-8">
+                          <div className="font-mono text-[10px] tracking-[0.3em] uppercase text-stone-400 mb-2 sm:mb-3 text-center">
+                            Does that match what you thought?
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                            <button
+                              onClick={() => handleReaction("confirmed")}
+                              className="py-3 sm:py-4 px-3 sm:px-5 bg-stone-900 text-stone-50 font-display text-sm sm:text-base font-medium tracking-wide hover:bg-stone-700 transition-colors duration-200 group"
+                            >
+                              <span className="block italic">"That's what I thought"</span>
+                              <span className="hidden sm:block text-[10px] font-mono tracking-widest uppercase opacity-60 mt-1 group-hover:opacity-90 not-italic">
+                                Onward
+                              </span>
+                            </button>
+                            <button
+                              onClick={() => handleReaction("surprised")}
+                              className="py-3 sm:py-4 px-3 sm:px-5 bg-white border border-stone-400 text-stone-800 font-display text-sm sm:text-base font-medium tracking-wide hover:bg-stone-100 transition-colors duration-200 group"
+                            >
+                              <span className="block italic">"Oh, huh"</span>
+                              <span className="hidden sm:block text-[10px] font-mono tracking-widest uppercase opacity-60 mt-1 group-hover:opacity-90 not-italic">
+                                Good to know
+                              </span>
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-5 sm:mt-8 flex justify-center">
+                          <button
+                            onClick={() => handleReaction("surprised")}
+                            className="py-3 px-8 sm:px-10 bg-stone-900 text-stone-50 font-display text-base sm:text-lg font-medium tracking-wide hover:bg-stone-700 transition-colors duration-200 flex items-center gap-2"
+                          >
+                            <Sparkles size={16} strokeWidth={1.5} />
+                            Next word
+                          </button>
+                        </div>
+                      )}
+
+                      <DancingCat />
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Reset link */}
+              {history.length > 0 && (
+                <div className="mt-8 text-center">
+                  <button
+                    onClick={handleReset}
+                    className="font-mono text-[10px] tracking-[0.3em] uppercase text-stone-500 hover:text-stone-800 transition-colors inline-flex items-center gap-2"
+                  >
+                    <RotateCcw size={11} strokeWidth={1.5} />
+                    Begin anew
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Review screen — appears every 5 words */}
+          {reviewMode && (
+            <div className="fade-up">
+              <div className="bg-white border border-stone-300 shadow-sm relative">
+                {/* Decorative corner marks */}
+                <div className="absolute top-2 left-2 w-3 h-3 border-t border-l border-stone-400" />
+                <div className="absolute top-2 right-2 w-3 h-3 border-t border-r border-stone-400" />
+                <div className="absolute bottom-2 left-2 w-3 h-3 border-b border-l border-stone-400" />
+                <div className="absolute bottom-2 right-2 w-3 h-3 border-b border-r border-stone-400" />
+
+                <div className="px-8 py-10 md:px-12 md:py-12">
+                  <div className="text-center mb-8">
+                    <div className="inline-flex items-center gap-2 font-mono text-[10px] tracking-[0.3em] uppercase text-stone-500 mb-3">
+                      <Repeat size={11} strokeWidth={1.5} />
+                      Interlude · A brief review
+                    </div>
+                    <h2 className="font-display text-3xl md:text-4xl font-medium text-stone-900 italic">
+                      Do you remember these?
+                    </h2>
+                    <div className="ink-line w-24 mx-auto mt-4" />
+                  </div>
+
+                  <div className="space-y-6">
+                    {wordsForReview.map((entry, i) => (
+                      <div
+                        key={`${entry.word}-${i}`}
+                        className="border-l-2 border-stone-300 pl-5 fade-up"
+                        style={{ animationDelay: `${i * 80}ms` }}
+                      >
+                        <div className="flex items-baseline gap-3 flex-wrap">
+                          <h3 className="font-display text-2xl text-stone-900 font-medium">
+                            {entry.word}
+                          </h3>
+                          <span className="font-body italic text-stone-500 text-sm">
+                            {entry.pos}
+                          </span>
+                        </div>
+                        <p className="font-body text-lg text-stone-700 mt-1">
+                          {entry.definition}
+                        </p>
+                        {entry.example && (
+                          <p className="font-body italic text-stone-500 text-sm mt-1">
+                            "{entry.example}"
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-10 flex justify-center">
+                    <button
+                      onClick={handleReviewDone}
+                      className="py-3 px-10 bg-stone-900 text-stone-50 font-display text-lg font-medium tracking-wide hover:bg-stone-700 transition-colors duration-200 flex items-center gap-2"
+                    >
+                      <Sparkles size={16} strokeWidth={1.5} />
+                      Continue
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Reset link */}
+              <div className="mt-8 text-center">
+                <button
+                  onClick={handleReset}
+                  className="font-mono text-[10px] tracking-[0.3em] uppercase text-stone-500 hover:text-stone-800 transition-colors inline-flex items-center gap-2"
+                >
+                  <RotateCcw size={11} strokeWidth={1.5} />
+                  Begin anew
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* All done state */}
+          {allDone && (
+            <div className="bg-white border border-stone-300 px-8 py-16 text-center fade-up">
+              <h2 className="font-display text-4xl text-stone-900 mb-4">
+                <em className="italic">Finis.</em>
+              </h2>
+              <div className="ink-line w-24 mx-auto mb-6" />
+              <p className="font-body text-xl text-stone-700 italic mb-2">
+                You've encountered every word in this volume.
+              </p>
+              <p className="font-body text-lg text-stone-600">
+                {stats.known} known · {stats.heard} heard · {stats.unknown} newly learned.
+              </p>
+              <button
+                onClick={handleReset}
+                className="mt-8 py-3 px-8 bg-stone-900 text-stone-50 font-display text-lg tracking-wide hover:bg-stone-700 transition-colors inline-flex items-center gap-2"
+              >
+                <RotateCcw size={16} strokeWidth={1.5} />
+                Start over
+              </button>
+            </div>
+          )}
+
+          {/* Footer */}
+          <footer className="mt-12 text-center font-mono text-[10px] tracking-[0.3em] uppercase text-stone-400">
+            ❦ Difficulty adapts to your responses ❦
+          </footer>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<VocabTool />);
+
+  </script>
+</body>
+</html>
